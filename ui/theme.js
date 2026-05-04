@@ -204,6 +204,32 @@ body { background: #06080f; }
   color: #8b78c0;
   letter-spacing: 0.08em;
 }
+
+@media (max-width: 768px) {
+  .root { font-size: 14px; }
+  h1.gold { font-size: 26px !important; }
+  h2.gold { font-size: 22px !important; }
+
+  .card { padding: 14px 12px !important; }
+  .nation-card { padding: 14px 12px; }
+  .race-card { padding: 14px 12px; }
+  .choice-btn { padding: 14px 14px; font-size: 15px; }
+  .primary-btn { padding: 14px 36px; font-size: 15px; width: 100%; max-width: 320px; }
+
+  .mobile-stack { grid-template-columns: 1fr !important; }
+  .mobile-sidebar { position: static !important; padding: 12px 10px !important; }
+  .mobile-stat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  .mobile-talent-grid { grid-template-columns: 1fr !important; }
+  .mobile-nation-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  .mobile-race-grid { grid-template-columns: 1fr !important; }
+  .mobile-summary-stats { grid-template-columns: repeat(2, 1fr) !important; }
+
+  .mobile-header { flex-wrap: wrap; gap: 4px; }
+  .mobile-header > div { font-size: 10px !important; padding: 2px 6px !important; }
+  .mobile-story-text { font-size: 15px !important; line-height: 2 !important; min-height: 100px !important; }
+  .mobile-resolution-text { font-size: 14px !important; line-height: 1.9 !important; }
+  .mobile-history-item { font-size: 11px !important; }
+}
 `;
 
   return { CSS };

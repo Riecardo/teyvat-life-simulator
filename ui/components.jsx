@@ -206,7 +206,7 @@
             {selectedRace ? `作为${selectedRace.name}，你能在以下国度降生` : "时代将由命运随机决定"}
           </p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 14, width: "100%", maxWidth: 1100 }}>
+        <div className="mobile-nation-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 14, width: "100%", maxWidth: 1100 }}>
           {NATIONS.map((nation, index) => (
             <div key={nation.id} className="fade-up" style={{ animationDelay: `${index * 0.08}s` }}>
               <NationCard nation={nation} available={availableIds.has(nation.id)} onSelect={onSelect} />
@@ -243,7 +243,7 @@
               {setupState.race_name} · {setupState.nation_name} · {setupState.era} · {setupState.birthplace}
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 16 }}>
+          <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 16 }}>
             <div className="card fade-up" style={{ padding: "22px 22px 18px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
                 <div>
@@ -256,7 +256,7 @@
                   <div style={{ fontSize: 12, color: "#6a5a40", maxWidth: 260 }}>{setupState.era_desc}</div>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
+              <div className="mobile-talent-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
                 {setupState.talentDraw.map((talent) => {
                   const selected = selectedTalentIds.includes(talent.id);
                   const rarityMeta = TALENT_RARITY_META[talent.rarity];
@@ -373,7 +373,7 @@
 
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative", zIndex: 1, padding: "18px 18px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid rgba(200,165,106,0.1)" }}>
+        <div className="mobile-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid rgba(200,165,106,0.1)" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ padding: "3px 10px", borderRadius: 4, background: "rgba(200,165,106,0.14)", color: "#e8d5a3", fontSize: 11 }}>{gs.age}岁</div>
             <div style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid rgba(200,165,106,0.2)", color: "#7a6a50", fontSize: 11 }}>{stage.name}</div>
@@ -386,8 +386,8 @@
             <span style={{ color: nation?.color }}>{gs.race_name} · {gs.nation_name}</span>{" · "}{gs.birthplace}
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 14, flex: 1, alignItems: "start" }}>
-          <div className="card" style={{ padding: "16px 14px", position: "sticky", top: 18 }}>
+        <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 14, flex: 1, alignItems: "start" }}>
+          <div className="card mobile-sidebar" style={{ padding: "16px 14px", position: "sticky", top: 18 }}>
             <div style={{ fontSize: 10, color: "#6a5a40", letterSpacing: "0.2em", marginBottom: 14 }}>年度状态</div>
             {statKeys.map((key) => {
               const meta = STAT_META[key];
@@ -461,7 +461,7 @@
                   <span style={{ fontSize: 14 }}>命运的齿轮正在转动……</span>
                 </div>
               ) : (
-                <p style={{ fontSize: 15, lineHeight: 2.1, color: "#c4b48a", position: "relative" }}>
+                <p className="mobile-story-text" style={{ fontSize: 15, lineHeight: 2.1, color: "#c4b48a", position: "relative" }}>
                   {displayedText}
                   {displayedText.length < (currentEvent?.story?.length || 0) ? (
                     <span style={{ animation: "blink 1s step-end infinite", marginLeft: 2, color: "#c8a56a" }}>|</span>
@@ -486,7 +486,7 @@
                     {resolution.checkResult ? <span style={{ fontSize: 11, color: "#7a6a50" }}>骰值 {resolution.checkResult.roll} / 目标 {resolution.checkResult.target}</span> : null}
                     {resolution.isDead ? <span style={{ fontSize: 11, color: "#e07070" }}>命数已尽</span> : null}
                   </div>
-                  <p style={{ fontSize: 14, lineHeight: 2, color: resolution.isDead ? "#e6a0a0" : "#d8c79f" }}>{resolution.text}</p>
+                  <p className="mobile-resolution-text" style={{ fontSize: 14, lineHeight: 2, color: resolution.isDead ? "#e6a0a0" : "#d8c79f" }}>{resolution.text}</p>
                   {resolution.passiveAgeing?.physique ? (
                     <p style={{ fontSize: 12, lineHeight: 1.8, color: "#b98989", marginTop: 10 }}>寿命透支：体质 {resolution.passiveAgeing.physique}</p>
                   ) : null}
@@ -571,7 +571,7 @@
               </div>
             ) : null}
           </div>
-          <div className="fade-up" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, marginBottom: 22, overflow: "hidden", border: "1px solid rgba(200,165,106,0.15)", borderRadius: 8, animationDelay: "0.15s" }}>
+          <div className="fade-up mobile-summary-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, marginBottom: 22, overflow: "hidden", border: "1px solid rgba(200,165,106,0.15)", borderRadius: 8, animationDelay: "0.15s" }}>
             {finalStats.map((key, index) => (
               <div key={key} style={{ padding: "16px 10px", textAlign: "center", background: "rgba(8,12,24,0.9)", borderRight: index < 3 ? "1px solid rgba(200,165,106,0.1)" : "none" }}>
                 <div style={{ fontSize: 26, fontWeight: 700, color: STAT_META[key].color }}>{gs.stats[key]}</div>
