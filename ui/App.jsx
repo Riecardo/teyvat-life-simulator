@@ -118,45 +118,60 @@
     function handleAction(choice) {
       if (busy || !gameState || !currentEvent) return;
       setBusy(true);
-      setAutoMode(false); // pause auto on major choice
+      if (currentEvent.type === "major") setAutoMode(false);
       const { nextGameState, deltas, resolution: nextResolution } = resolveYearAction(gameState, choice, currentEvent);
       setGameState(nextGameState);
+      gameStateRef.current = nextGameState;
       setStatDeltas(Object.keys(deltas).length ? deltas : null);
       setResolution(nextResolution);
-      setPendingTransition(nextGameState);
+      resolutionRef.current = nextResolution;
       setBusy(false);
     }
 
     function continueAfterResolution() {
-      if (!pendingTransition) return;
-      const nextGameState = pendingTransition;
-      setPendingTransition(null);
-      if (nextGameState.isDead) {
+      const gs = gameStateRef.current;
+      setResolution(null);
+      resolutionRef.current = null;
+      if (gs.isDead) {
         setAutoMode(false);
-        endLife(nextGameState);
+        endLife(gs);
       } else {
-        loadEvent(nextGameState);
+        loadEvent(gs);
       }
     }
 
-    // Auto-advance: simulate clicking "continue" or advance year
-    function triggerAdvance() {
-      if (busy) return;
-      if (resolution) {
-        continueAfterResolution();
-      } else if (currentEvent && currentEvent.type !== "major") {
-        // Normal event: auto-click the default action
-        handleAction({ text: currentEvent.actionText || "下一年", success: currentEvent.outcome });
-      }
-      // Major events: don't auto-advance, wait for player
-    }
+    // Auto-advance: use interval-based approach for continuous advance
+    const gameStateRef = React.useRef(gameState);
+    const currentEventRef = React.useRef(currentEvent);
+    const resolutionRef = React.useRef(resolution);
+    const busyRef = React.useRef(busy);
+    gameStateRef.current = gameState;
+    currentEventRef.current = currentEvent;
+    resolutionRef.current = resolution;
+    busyRef.current = busy;
 
     React.useEffect(() => {
-      if (autoMode && !busy) {
-        const timer = setTimeout(() => triggerAdvance(), 800);
-        return () => clearTimeout(timer);
-      }
-    }, [autoMode, currentEvent, resolution, busy, gameState?.age]);
+      if (!autoMode) return;
+      const timer = setInterval(() => {
+        if (busyRef.current) return;
+        const gs = gameStateRef.current;
+        if (!gs || gs.isDead) { setAutoMode(false); return; }
+
+        if (resolutionRef.current) {
+          // Has resolution → continue to next year
+          const nextGs = gs;
+          if (nextGs.isDead) { setAutoMode(false); setScreen("summary"); return; }
+          loadEvent(nextGs);
+        } else if (currentEventRef.current?.type === "major") {
+          // Major event: pause auto, wait for player choice
+          setAutoMode(false);
+        } else if (currentEventRef.current) {
+          // Normal event: advance
+          handleAction({ text: currentEventRef.current.actionText || "下一年", success: currentEventRef.current.outcome });
+        }
+      }, 800);
+      return () => clearInterval(timer);
+    }, [autoMode]);
 
     function toggleAuto() {
       setAutoMode((prev) => !prev);

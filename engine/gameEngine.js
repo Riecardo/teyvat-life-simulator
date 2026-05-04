@@ -299,6 +299,7 @@ window.TeyvatEngine = (() => {
       faith_loss: 0,
       abyss_corruption: (setupState.nation_id === "khaenriah") ? 0 : undefined,
       event_weight_modifiers: validation.effectSummary.eventWeightModifiers || [],
+      used_event_ids: [],
     };
   }
 
@@ -416,7 +417,7 @@ window.TeyvatEngine = (() => {
         actionText: "下一年",
         tags: chronicleEntry.tags || [],
         outcome: {
-          text: chronicleEntry.death ? fillTokens(chronicleEntry.text, gameState) : `${gameState.age}岁这一年过去了。`,
+          text: fillTokens(chronicleEntry.summary || chronicleEntry.text, gameState),
           summary: fillTokens(chronicleEntry.summary || chronicleEntry.text, gameState),
           effect: chronicleEntry.effect || {},
           flag: chronicleEntry.flag || null,
@@ -443,15 +444,33 @@ window.TeyvatEngine = (() => {
 
     const nationPool = YEARLY_POOLS[gameState.nation_id]?.[stage.id] || [];
     const specialPool = gameState.specialLine ? SPECIAL_LINES[gameState.specialLine]?.yearly?.[stage.id] || [] : [];
-    let combinedPool = [...nationPool, ...specialPool];
+    // Assign unique IDs and filter
+    const usedIds = gameState.used_event_ids || [];
+    const indexedPool = combinedPool.map((entry, i) => ({
+      ...entry,
+      _poolId: `${gameState.nation_id}-${stage.id}-${i}`,
+    }));
 
-    // Filter by stat/flag conditions (like reference game's include/exclude)
-    combinedPool = combinedPool.filter((entry) => entryMatchesConditions(entry, gameState));
-    if (!combinedPool.length) {
+    // Filter: conditions + anti-repeat
+    const filteredPool = indexedPool.filter(
+      (entry) => entryMatchesConditions(entry, gameState) && !usedIds.includes(entry._poolId)
+    );
+
+    // Pool exhausted: reset and cycle
+    if (!filteredPool.length) {
+      const resetPool = indexedPool.filter((entry) => entryMatchesConditions(entry, gameState));
+      if (resetPool.length) {
+        // Reset tracked IDs for this stage and start over
+        const stageEventIds = resetPool.map((e) => e._poolId);
+        const cleanIds = usedIds.filter((id) => !stageEventIds.includes(id));
+        gameState.used_event_ids = cleanIds;
+        // Recurse with cleaned state
+        return createYearEvent({ ...gameState, used_event_ids: cleanIds });
+      }
       return createFallbackYearlyEvent(gameState);
     }
 
-    const entry = pickWeighted(combinedPool, (entry) => {
+    const entry = pickWeighted(filteredPool, (entry) => {
       let weight = 1;
       const entryTags = entry.tags || [];
       (gameState.event_weight_modifiers || []).forEach((mod) => {
@@ -469,7 +488,7 @@ window.TeyvatEngine = (() => {
     });
 
     return {
-      id: `${gameState.nation_id}-${stage.id}-${gameState.age}`,
+      id: entry._poolId || `${gameState.nation_id}-${stage.id}-${gameState.age}`,
       type: "normal",
       age: gameState.age,
       stageId: stage.id,
@@ -478,7 +497,7 @@ window.TeyvatEngine = (() => {
       actionText: "下一年",
       tags: entry.tags || [],
       outcome: {
-        text: `${gameState.age}岁这一年过去了。`,
+        text: fillTokens(entry.summary || entry.text, gameState),
         summary: fillTokens(entry.summary || entry.text, gameState),
         effect: entry.effect || {},
         flag: entry.flag || null,
@@ -727,6 +746,7 @@ window.TeyvatEngine = (() => {
 
     const deltas = mergeDeltas(directDeltas, ageDeltas);
     const nextHistory = [...gameState.history, buildHistoryEntry(gameState, currentEvent, outcome, checkResult)];
+    const nextUsedIds = [...(gameState.used_event_ids || []), currentEvent.id].filter(Boolean);
 
     return {
       nextGameState: {
@@ -739,6 +759,7 @@ window.TeyvatEngine = (() => {
         isDead: finalIsDead,
         deathReason: finalDeathReason,
         isHilichurlEnding: finalIsHilichurl,
+        used_event_ids: nextUsedIds,
       },
       deltas,
       resolution: {
