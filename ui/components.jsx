@@ -359,7 +359,7 @@
 
   // ── Game Screen ──
 
-  function GameScreen({ gs, timeline, pendingMajor, isDead, autoMode, busy, onChoice, onAdvance, onToggleAuto }) {
+  function GameScreen({ gs, timeline, majorPending, autoOn, onToggleAuto, onAdvance, onChoice }) {
     const nation = NATIONS.find((item) => item.id === gs.nation_id);
     const statKeys = ["intellect", "spirit", "physique", "elemental"];
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -385,12 +385,12 @@
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button type="button" className="choice-btn" onClick={() => setSidebarOpen(true)}
               style={{ padding: "3px 10px", fontSize: 11, width: "auto" }}>☰</button>
-            {!isDead ? (
-              <button type="button" className="choice-btn" onClick={onToggleAuto} disabled={busy}
-                style={{ padding: "3px 12px", fontSize: 11, width: "auto", color: autoMode ? "#e8d080" : "rgba(200,165,106,0.5)", borderColor: autoMode ? "rgba(240,216,144,0.4)" : "rgba(200,165,106,0.12)" }}>
-                {autoMode ? "⏸" : "▶"}
+            {!gs.isDead && (
+              <button type="button" className="choice-btn" onClick={onToggleAuto}
+                style={{ padding: "3px 12px", fontSize: 11, width: "auto", color: autoOn ? "#e8d080" : "rgba(200,165,106,0.5)", borderColor: autoOn ? "rgba(240,216,144,0.4)" : "rgba(200,165,106,0.12)" }}>
+                {autoOn ? "⏸" : "▶"}
               </button>
-            ) : null}
+            )}
           </div>
         </div>
 
@@ -439,30 +439,20 @@
           {timeline.map((entry, i) => {
             if (entry.type === "story") {
               return (
-                <div key={`s-${i}`} className="fade-up" style={{ padding: "6px 0", borderBottom: "1px solid rgba(200,165,106,0.04)" }}>
+                <div key={entry.id || `s-${i}`} className="fade-up" style={{ padding: "6px 0", borderBottom: "1px solid rgba(200,165,106,0.04)" }}>
                   <span style={{ color: "#8a7a60", fontSize: 12, marginRight: 6 }}>{entry.age}岁</span>
                   <span style={{ fontSize: 14, color: "#c4b48a", lineHeight: 1.9 }}>{entry.text}</span>
                 </div>
               );
             }
-            if (entry.type === "resolution") {
-              const deadColor = entry.isDead ? "#d08070" : "#8a7a60";
-              const checkText = entry.checkResult
-                ? ` [${STAT_META[entry.checkResult.stat]?.label}检定${entry.checkResult.passed ? "成功" : "失败"} 骰${entry.checkResult.roll}/${entry.checkResult.target}]`
-                : "";
-              const deltaText = entry.statDeltas
-                ? Object.entries(entry.statDeltas).filter(([, v]) => v !== 0).map(([k, v]) =>
-                    `${STAT_META[k]?.label || k}${v > 0 ? "+" : ""}${v}`).join(" ")
-                : "";
+            if (entry.type === "result") {
+              const dc = entry.dead ? "#d08070" : "#8a7a60";
+              const ck = entry.check ? ` [${STAT_META[entry.check.stat]?.label}${entry.check.passed?"成功":"失败"} 骰${entry.check.roll}/${entry.check.target}]` : "";
+              const dt = entry.deltas ? Object.entries(entry.deltas).filter(([,v])=>v!==0).map(([k,v])=>`${STAT_META[k]?.label||k}${v>0?"+":""}${v}`).join(" ") : "";
               return (
-                <div key={`r-${i}`} className="fade-up" style={{ padding: "4px 0 10px 0" }}>
-                  <span style={{ fontSize: 13, color: deadColor, lineHeight: 1.9 }}>{entry.text}</span>
-                  {(checkText || deltaText) ? (
-                    <span style={{ fontSize: 11, color: "#6a5040", marginLeft: 4 }}>
-                      {checkText}
-                      {deltaText ? ` · ${deltaText}` : ""}
-                    </span>
-                  ) : null}
+                <div key={entry.id || `r-${i}`} className="fade-up" style={{ padding: "4px 0 10px 0" }}>
+                  <span style={{ fontSize: 13, color: dc, lineHeight: 1.9 }}>{entry.text}</span>
+                  {(ck||dt) ? <span style={{ fontSize: 11, color: "#6a5040", marginLeft: 4 }}>{ck}{dt?" · "+dt:""}</span> : null}
                 </div>
               );
             }
@@ -470,11 +460,11 @@
           })}
 
           {/* Major event choices */}
-          {pendingMajor && !isDead && (
+          {majorPending && !gs.isDead && (
             <div className="fade-up card" style={{ padding: "14px 16px", margin: "10px 0", borderColor: "rgba(200,165,106,0.35)" }}>
               <div style={{ fontSize: 13, color: "#e8d5a3", marginBottom: 12, fontWeight: 700 }}>⚡ 重大抉择</div>
-              {pendingMajor.choices ? pendingMajor.choices.map((choice, idx) => (
-                <button key={idx} className="choice-btn" onClick={() => onChoice(choice)} disabled={busy}
+              {majorPending.choices ? majorPending.choices.map((choice, idx) => (
+                <button key={idx} className="choice-btn" onClick={() => onChoice(choice)}
                   style={{ marginBottom: 6, fontSize: 14 }}>
                   ▶ {choice.text}
                   {choice.check ? <span style={{ marginLeft: 6, fontSize: 11, color: "#7a6a50" }}>[{STAT_META[choice.check.stat]?.label}]{choice.check.difficulty}</span> : null}
@@ -483,17 +473,17 @@
             </div>
           )}
 
-          {/* Bottom spacer + advance button */}
-          {!isDead && !pendingMajor && (
+          {/* Advance button */}
+          {!gs.isDead && !majorPending && (
             <div style={{ textAlign: "center", padding: "10px 0 20px 0" }}>
-              <button className="choice-btn" onClick={onAdvance} disabled={busy}
+              <button className="choice-btn" onClick={onAdvance}
                 style={{ display: "inline-block", width: "auto", padding: "8px 32px", fontSize: 13, borderColor: "rgba(200,165,106,0.2)" }}>
-                {gs.age === 0 ? "下一年 →" : "继续 →"}
+                继续 →
               </button>
             </div>
           )}
 
-          {isDead && (
+          {gs.isDead && (
             <div style={{ textAlign: "center", padding: "16px 0 8px 0" }}>
               <span style={{ color: "#b97b7b", fontSize: 13 }}>人生结束</span>
             </div>
