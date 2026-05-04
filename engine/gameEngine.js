@@ -444,6 +444,7 @@ window.TeyvatEngine = (() => {
 
     const nationPool = YEARLY_POOLS[gameState.nation_id]?.[stage.id] || [];
     const specialPool = gameState.specialLine ? SPECIAL_LINES[gameState.specialLine]?.yearly?.[stage.id] || [] : [];
+    const combinedPool = [...nationPool, ...specialPool];
     // Assign unique IDs and filter
     const usedIds = gameState.used_event_ids || [];
     const indexedPool = combinedPool.map((entry, i) => ({

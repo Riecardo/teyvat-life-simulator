@@ -64,7 +64,7 @@ window.TeyvatNarrative = (() => {
   }
 
   async function fetchSummary(gameState) {
-    const system = “你是提瓦特人生重开模拟器叙事者。为一个提瓦特普通居民的一生写终章总结。200字以内，第三人称，融入提瓦特世界观的风格。”;
+    const system = `你是提瓦特人生重开模拟器叙事者。为一个提瓦特普通居民的一生写终章总结。200字以内，第三人称，融入提瓦特世界观的风格。`;
     const user =
       `${gameState.nation_name}，${gameState.era}，出生地${gameState.birthplace || "不详"}\n` +
       `享年或停在：${gameState.age}岁，寿命阈值${gameState.lifespan}\n` +
