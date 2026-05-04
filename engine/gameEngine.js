@@ -775,11 +775,72 @@ window.TeyvatEngine = (() => {
     };
   }
 
+  // ── Unified Year Advance (inspired by lifeRestart's next()) ──
+  function advanceYear(gameState, choice) {
+    const event = createYearEvent(gameState);
+
+    if (event.type === "major") {
+      if (!choice) {
+        // Major event needs player choice - return it for display
+        return {
+          storyText: fillTokens(event.story, gameState),
+          storyTitle: event.title,
+          majorChoices: event.choices.map((c) => ({
+            text: c.text,
+            check: c.check,
+          })),
+          nextGameState: null,
+          resolutionText: null,
+          checkResult: null,
+          statDeltas: null,
+          isDead: false,
+          isHilichurlEnding: false,
+          _rawEvent: event,
+          _rawGameState: gameState,
+        };
+      }
+      // Major event with choice - resolve it
+      const { nextGameState, deltas, resolution: res } = resolveYearAction(gameState, choice, event);
+      return {
+        storyText: fillTokens(event.story, gameState),
+        storyTitle: event.title,
+        majorChoices: null,
+        nextGameState,
+        resolutionText: res.text,
+        checkResult: res.checkResult,
+        statDeltas: Object.keys(deltas).length ? deltas : null,
+        isDead: nextGameState.isDead,
+        isHilichurlEnding: nextGameState.isHilichurlEnding || false,
+        _rawEvent: null,
+        _rawGameState: null,
+      };
+    }
+
+    // Normal event: auto-resolve immediately
+    const action = { text: event.actionText || "下一年", success: event.outcome };
+    const { nextGameState, deltas, resolution: res } = resolveYearAction(gameState, action, event);
+
+    return {
+      storyText: fillTokens(event.story, gameState),
+      storyTitle: event.title,
+      majorChoices: null,
+      nextGameState,
+      resolutionText: res.text,
+      checkResult: res.checkResult,
+      statDeltas: Object.keys(deltas).length ? deltas : null,
+      isDead: nextGameState.isDead,
+      isHilichurlEnding: nextGameState.isHilichurlEnding || false,
+      _rawEvent: null,
+      _rawGameState: null,
+    };
+  }
+
   return {
     createSetupState,
     getSetupBudget,
     validateSetup,
     buildGameState,
+    advanceYear,
     createYearEvent,
     resolveYearAction,
     getStageByAge,
