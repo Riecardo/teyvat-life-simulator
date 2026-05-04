@@ -359,161 +359,163 @@
 
   // ── Game Screen ──
 
-  function GameScreen({ gs, isLoading, displayedText, showChoices, currentEvent, statDeltas, resolution, busy, onChoice, onContinue }) {
+  function GameScreen({ gs, isLoading, currentEvent, statDeltas, resolution, busy, autoMode, onChoice, onContinue, onToggleAuto }) {
     const nation = NATIONS.find((item) => item.id === gs.nation_id);
     const activeAge = resolution ? resolution.age : gs.age;
     const stage = getStageByAge(activeAge);
     const statKeys = ["intellect", "spirit", "physique", "elemental"];
-    const visibleChoices = currentEvent?.type === "major"
-      ? currentEvent.choices
-      : [{ text: currentEvent?.actionText || "下一年" }];
-    const checkLabel = resolution?.checkResult
-      ? `${STAT_META[resolution.checkResult.stat]?.label || resolution.checkResult.stat} ${resolution.checkResult.passed ? "成功" : "失败"}`
-      : null;
+    const visibleChoices = currentEvent?.type === "major" ? currentEvent.choices : null;
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    useEffect(() => {
+      const el = document.getElementById("timeline-scroll");
+      if (el) el.scrollTop = el.scrollHeight;
+    }, [gs.history.length, resolution]);
+
+    const renderTimelineEntry = (item, index) => {
+      const isLast = index === gs.history.length - 1;
+      const isDeadEntry = item.summary?.includes("死") || item.summary?.includes("陨") || item.summary?.includes("终");
+      return (
+        <div key={`${item.age}-${index}`} className="fade-up" style={{
+          padding: "6px 0", borderBottom: "1px solid rgba(200,165,106,0.05)",
+          color: isDeadEntry ? "#d08070" : "#c4b48a", fontSize: 14, lineHeight: 1.9,
+        }}>
+          <span style={{ color: "#8a7a60", fontSize: 12, marginRight: 6 }}>{item.age}岁</span>
+          <span>{item.summary}</span>
+          {item.result ? <span style={{ color: "#7a6a50", fontSize: 11, marginLeft: 6 }}>[{item.result}]</span> : null}
+        </div>
+      );
+    };
 
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative", zIndex: 1, padding: "18px 18px 24px" }}>
-        <div className="mobile-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid rgba(200,165,106,0.1)" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ padding: "3px 10px", borderRadius: 4, background: "rgba(200,165,106,0.14)", color: "#e8d5a3", fontSize: 11 }}>{gs.age}岁</div>
-            <div style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid rgba(200,165,106,0.2)", color: "#7a6a50", fontSize: 11 }}>{stage.name}</div>
-            <div style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid rgba(200,165,106,0.2)", color: "#7a6a50", fontSize: 11 }}>寿命阈值 {gs.lifespan}</div>
-            {(gs.age_increment || 1) > 1 && (
-              <div style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid rgba(240,216,144,0.3)", color: "#d8c090", fontSize: 11 }}>每{gs.age_increment}年推进</div>
-            )}
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative", zIndex: 1 }}>
+        {/* Top bar */}
+        <div className="mobile-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", borderBottom: "1px solid rgba(200,165,106,0.1)", flexWrap: "wrap", gap: 4 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ color: nation?.color, fontWeight: 700, fontSize: 14 }}>{gs.race_name} · {gs.nation_name}</span>
+            <span style={{ color: "#8a7a60", fontSize: 12 }}>{gs.era}</span>
+            <span style={{ color: "#7a6a50", fontSize: 12 }}>|</span>
+            {statKeys.map((key) => (
+              <span key={key} style={{ fontSize: 11, color: STAT_META[key].color }}>
+                {STAT_META[key].label} {gs.stats[key]}
+                {statDeltas?.[key] ? (
+                  <span style={{ fontSize: 10, color: statDeltas[key] > 0 ? "#5ec878" : "#e07070" }}>
+                    {statDeltas[key] > 0 ? `+${statDeltas[key]}` : statDeltas[key]}
+                  </span>
+                ) : null}
+              </span>
+            ))}
           </div>
-          <div style={{ fontSize: 11, color: "#7a6a50" }}>
-            <span style={{ color: nation?.color }}>{gs.race_name} · {gs.nation_name}</span>{" · "}{gs.birthplace}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button type="button" className="choice-btn" onClick={() => setSidebarOpen(true)}
+              style={{ padding: "3px 10px", fontSize: 11, width: "auto" }}>☰</button>
+            <button type="button" className="choice-btn" onClick={onToggleAuto} disabled={busy}
+              style={{ padding: "3px 12px", fontSize: 12, width: "auto", color: autoMode ? "#e8d080" : "rgba(200,165,106,0.6)", borderColor: autoMode ? "rgba(240,216,144,0.4)" : "rgba(200,165,106,0.15)" }}>
+              {autoMode ? "⏸ 暂停" : "▶ 自动"}
+            </button>
           </div>
         </div>
-        <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 14, flex: 1, alignItems: "start" }}>
-          <div className="card mobile-sidebar" style={{ padding: "16px 14px", position: "sticky", top: 18 }}>
-            <div style={{ fontSize: 10, color: "#6a5a40", letterSpacing: "0.2em", marginBottom: 14 }}>年度状态</div>
-            {statKeys.map((key) => {
-              const meta = STAT_META[key];
-              const color = key === "elemental" ? nation?.color || meta.color : meta.color;
-              return <StatBar key={key} label={meta.label} value={gs.stats[key]} color={color} delta={statDeltas?.[key]} compact />;
-            })}
-            {(gs.nation_id === "khaenriah" && gs.abyss_corruption !== undefined) && (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(200,165,106,0.08)" }}>
-                <AbyssBar value={gs.abyss_corruption || 0} />
+
+        {/* Sidebar overlay (mobile) */}
+        {sidebarOpen && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 10, background: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "flex-end" }}
+            onClick={() => setSidebarOpen(false)}>
+            <div className="card" style={{ width: 240, padding: "14px 12px", overflowY: "auto" }}
+              onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: "#7a6a50" }}>{gs.age}岁 · 寿命{gs.lifespan}</span>
+                <button type="button" onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: "#7a6a50", cursor: "pointer", fontSize: 14 }}>✕</button>
               </div>
-            )}
-            {(gs.race_id === "khaenriah" && gs.nation_id !== "khaenriah") && (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(200,165,106,0.08)" }}>
-                <CurseBar value={gs.curse_progress || 0} />
-              </div>
-            )}
-            {(gs.race_id === "angel") && (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(200,165,106,0.08)" }}>
-                <FaithBar value={gs.faith_loss || 0} />
-              </div>
-            )}
-            <div style={{ marginTop: 10, paddingTop: 12, borderTop: "1px solid rgba(200,165,106,0.08)" }}>
-              <div style={{ fontSize: 10, color: "#6a5a40", marginBottom: 8 }}>系统信息</div>
-              <div style={{ fontSize: 12, color: "#d8c79f", lineHeight: 1.8 }}>
-                {gs.era}<br />{gs.birthplace}
-                {gs.specialLine ? ` · ${gs.specialLine === "dragon" ? "龙之一生" : "天使之一生"}` : ""}
-              </div>
-            </div>
-            {gs.talents?.length ? (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(200,165,106,0.08)" }}>
-                <div style={{ fontSize: 10, color: "#6a5a40", marginBottom: 8 }}>已选天赋</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {gs.talents.map((talent) => (
-                    <span key={talent.id} style={{ fontSize: 10, padding: "2px 7px", background: "rgba(200,165,106,0.08)", border: "1px solid rgba(200,165,106,0.18)", borderRadius: 10, color: "#c8a56a" }}>{talent.name}</span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {gs.history.length ? (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(200,165,106,0.08)" }}>
-                <div style={{ fontSize: 10, color: "#6a5a40", marginBottom: 8 }}>近期年份</div>
-                {gs.history.slice(-8).map((item, index) => (
-                  <div key={`${item.age}-${index}`} style={{ fontSize: 10, color: "#4a3a28", marginBottom: 5, lineHeight: 1.6 }}>
-                    <span style={{ color: "#6a5040" }}>{item.label}</span>
-                    {item.result ? <span style={{ color: "#7a6a50" }}> · {item.result}</span> : null}
+              {statKeys.map((key) => {
+                const meta = STAT_META[key];
+                return <StatBar key={key} label={meta.label} value={gs.stats[key]} color={meta.color} delta={statDeltas?.[key]} compact />;
+              })}
+              {(gs.nation_id === "khaenriah" && gs.abyss_corruption !== undefined) && <AbyssBar value={gs.abyss_corruption || 0} />}
+              {(gs.race_id === "khaenriah" && gs.nation_id !== "khaenriah") && <CurseBar value={gs.curse_progress || 0} />}
+              {(gs.race_id === "angel") && <FaithBar value={gs.faith_loss || 0} />}
+              {gs.talents?.length ? (
+                <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(200,165,106,0.08)" }}>
+                  <div style={{ fontSize: 10, color: "#6a5a40", marginBottom: 6 }}>天赋</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                    {gs.talents.map((t) => (
+                      <span key={t.id} style={{ fontSize: 10, padding: "1px 6px", background: "rgba(200,165,106,0.08)", border: "1px solid rgba(200,165,106,0.15)", borderRadius: 8, color: "#c8a56a" }}>{t.name}</span>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <div className="card" style={{ padding: "24px 24px 22px" }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid rgba(200,165,106,0.08)" }}>
-              <span style={{ fontFamily: "Cinzel,serif", fontSize: 22, fontWeight: 500, color: nation?.color, textShadow: `0 0 24px ${nation?.color}44` }}>{activeAge}岁</span>
-              <span style={{ fontSize: 12, color: "#7a6a50" }}>{stage.name}</span>
-              {currentEvent?.title ? <span style={{ fontSize: 11, color: "#c8a56a" }}>{currentEvent.title}</span> : null}
+                </div>
+              ) : null}
             </div>
-            {gs.history.length === 0 && !resolution ? (
-              <div style={{ marginBottom: 18, padding: "14px 16px", background: "rgba(0,0,0,0.24)", border: "1px solid rgba(200,165,106,0.12)", borderRadius: 6 }}>
-                <div style={{ fontSize: 11, color: "#7a6a50", letterSpacing: "0.18em", marginBottom: 8 }}>系统初始化</div>
-                <div style={{ fontSize: 14, lineHeight: 1.9, color: "#d8c79f" }}>
-                  种族：{gs.race_name} · 时代：{gs.era} · 出生地：{gs.birthplace}
-                  <br />基础属性：智力 {gs.initialStats?.intellect ?? gs.stats.intellect}，精神 {gs.initialStats?.spirit ?? gs.stats.spirit}，元素力 {gs.initialStats?.elemental ?? gs.stats.elemental}，体质 {gs.initialStats?.physique ?? gs.stats.physique}
-                  <br />机制说明：每年自动进行事件判定；体质 &lt; 0 时肉体死亡，精神 &lt; 0 时意识崩溃并判定死亡。
-                </div>
+          </div>
+        )}
+
+        {/* Timeline */}
+        <div id="timeline-scroll" style={{ flex: 1, overflowY: "auto", padding: "12px 14px", maxHeight: "calc(100vh - 140px)" }}>
+          {/* Init info */}
+          {gs.history.length === 0 ? (
+            <div className="card fade-up" style={{ padding: "14px 16px", marginBottom: 12 }}>
+              <div style={{ fontSize: 13, lineHeight: 1.9, color: "#d8c79f" }}>
+                ▸ 种族：{gs.race_name} · 时代：{gs.era} · 出生地：{gs.birthplace}
+                <br />▸ 智力 {gs.initialStats?.intellect ?? gs.stats.intellect} · 精神 {gs.initialStats?.spirit ?? gs.stats.spirit} · 元素力 {gs.initialStats?.elemental ?? gs.stats.elemental} · 体质 {gs.initialStats?.physique ?? gs.stats.physique}
+                <br />▸ 寿命阈值 {gs.lifespan} · {gs.specialLine ? (gs.specialLine === "dragon" ? "龙之一生" : "天使之一生") : "普通人生"}
               </div>
-            ) : null}
-            <div style={{ minHeight: 140, marginBottom: 22 }}>
-              {isLoading ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#6a5a40", padding: "20px 0" }}>
-                  <div className="spinner" />
-                  <span style={{ fontSize: 14 }}>命运的齿轮正在转动……</span>
-                </div>
-              ) : (
-                <p className="mobile-story-text" style={{ fontSize: 15, lineHeight: 2.1, color: "#c4b48a", position: "relative" }}>
-                  {displayedText}
-                  {displayedText.length < (currentEvent?.story?.length || 0) ? (
-                    <span style={{ animation: "blink 1s step-end infinite", marginLeft: 2, color: "#c8a56a" }}>|</span>
-                  ) : null}
+            </div>
+          ) : null}
+
+          {/* History entries */}
+          {gs.history.map((item, i) => renderTimelineEntry(item, i))}
+
+          {/* Loading spinner */}
+          {isLoading && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", color: "#6a5a40" }}>
+              <div className="spinner" /><span style={{ fontSize: 13 }}>命运转动中...</span>
+            </div>
+          )}
+
+          {/* Resolution display */}
+          {resolution && !isLoading && (
+            <div className="fade-up" style={{ padding: "8px 0" }}>
+              <div style={{ padding: "10px 14px", background: resolution.isDead ? "rgba(200,80,60,0.08)" : "rgba(0,0,0,0.2)", border: `1px solid ${resolution.isDead ? "rgba(200,120,100,0.25)" : "rgba(200,165,106,0.1)"}`, borderRadius: 6, marginBottom: 8 }}>
+                <p className="mobile-resolution-text" style={{ fontSize: 13, lineHeight: 1.9, color: resolution.isDead ? "#e6a0a0" : "#c8c0a0", margin: 0 }}>
+                  {resolution.text}
                 </p>
-              )}
-            </div>
-            {statDeltas && Object.keys(statDeltas).length ? (
-              <div className="fade-up" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 18, padding: "10px 14px", background: "rgba(0,0,0,0.25)", borderRadius: 5 }}>
-                {Object.entries(statDeltas).filter(([, value]) => value !== 0).map(([key, value]) => (
-                  <span key={key} style={{ fontSize: 12, padding: "2px 10px", borderRadius: 4, color: value > 0 ? "#5ec878" : "#e07070", background: value > 0 ? "rgba(94,200,120,0.1)" : "rgba(224,112,112,0.1)" }}>
-                    {STAT_META[key]?.label || key} {value > 0 ? `+${value}` : value}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {resolution ? (
-              <div className="fade-up">
-                <div style={{ marginBottom: 16, padding: "14px 16px", background: "rgba(0,0,0,0.24)", border: "1px solid rgba(200,165,106,0.12)", borderRadius: 6 }}>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                    {checkLabel ? <span style={{ fontSize: 11, color: resolution.checkResult.passed ? "#5ec878" : "#e07070" }}>{checkLabel}</span> : null}
-                    {resolution.checkResult ? <span style={{ fontSize: 11, color: "#7a6a50" }}>骰值 {resolution.checkResult.roll} / 目标 {resolution.checkResult.target}</span> : null}
-                    {resolution.isDead ? <span style={{ fontSize: 11, color: "#e07070" }}>命数已尽</span> : null}
+                {resolution.checkResult && (
+                  <div style={{ fontSize: 11, color: "#7a6a50", marginTop: 6 }}>
+                    {STAT_META[resolution.checkResult.stat]?.label}检定：骰{resolution.checkResult.roll}/目标{resolution.checkResult.target} {resolution.checkResult.passed ? "✓成功" : "✗失败"}
                   </div>
-                  <p className="mobile-resolution-text" style={{ fontSize: 14, lineHeight: 2, color: resolution.isDead ? "#e6a0a0" : "#d8c79f" }}>{resolution.text}</p>
-                  {resolution.passiveAgeing?.physique ? (
-                    <p style={{ fontSize: 12, lineHeight: 1.8, color: "#b98989", marginTop: 10 }}>寿命透支：体质 {resolution.passiveAgeing.physique}</p>
-                  ) : null}
-                </div>
-                <button className="choice-btn" onClick={onContinue} disabled={busy}
-                  style={{ textAlign: "center", color: resolution.isDead ? "#f0b0b0" : "rgba(200,165,106,0.85)", borderColor: resolution.isDead ? "rgba(224,112,112,0.35)" : "rgba(200,165,106,0.22)" }}>
-                  {resolution.isDead ? "走向终章" : "迈入下一年"}
-                </button>
-              </div>
-            ) : showChoices && currentEvent && !isLoading ? (
-              <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                {currentEvent.type === "major" ? (
-                  <div style={{ fontSize: 11, color: "#6a5a40", letterSpacing: "0.18em", marginBottom: 3 }}>重大历史节点：你会怎么做？</div>
-                ) : (
-                  <div style={{ fontSize: 11, color: "#6a5a40", letterSpacing: "0.18em", marginBottom: 3 }}>平常一年：只能继续前行</div>
                 )}
-                {visibleChoices.map((choice, index) => (
-                  <button key={`${choice.text}-${index}`} className="choice-btn" onClick={() => onChoice(choice)} disabled={busy}
-                    style={currentEvent.type === "major" ? null : { textAlign: "center", color: "rgba(200,165,106,0.8)", letterSpacing: "0.1em", borderColor: "rgba(200,165,106,0.2)" }}>
-                    {currentEvent.type === "major" ? <span style={{ color: "rgba(200,165,106,0.6)", marginRight: 9, fontSize: 10 }}>▶</span> : null}
-                    {choice.text}
-                    {choice.check ? <span style={{ marginLeft: 8, fontSize: 11, color: "#7a6a50" }}>{STAT_META[choice.check.stat]?.label}检定 {choice.check.difficulty}</span> : null}
-                  </button>
-                ))}
+                {resolution.passiveAgeing?.physique ? (
+                  <div style={{ fontSize: 11, color: "#b98989", marginTop: 4 }}>寿命透支：体质 {resolution.passiveAgeing.physique}</div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
+              <button className="choice-btn" onClick={onContinue} disabled={busy}
+                style={{ textAlign: "center", fontSize: 13, color: resolution.isDead ? "#f0b0b0" : "rgba(200,165,106,0.85)", borderColor: resolution.isDead ? "rgba(224,112,112,0.3)" : "rgba(200,165,106,0.15)", padding: "8px" }}>
+                {resolution.isDead ? "走向终章" : "迈入下一年"} →
+              </button>
+            </div>
+          )}
+
+          {/* Major event choices */}
+          {!resolution && !isLoading && visibleChoices && (
+            <div className="fade-up card" style={{ padding: "14px 16px", margin: "8px 0", borderColor: "rgba(200,165,106,0.3)" }}>
+              <div style={{ fontSize: 13, color: "#e8d5a3", marginBottom: 10 }}>⚡ 重大抉择 · 你会怎么做？</div>
+              {visibleChoices.map((choice, idx) => (
+                <button key={`${choice.text}-${idx}`} className="choice-btn" onClick={() => onChoice(choice)} disabled={busy}
+                  style={{ marginBottom: 6, fontSize: 14 }}>
+                  <span style={{ color: "rgba(200,165,106,0.6)", marginRight: 8, fontSize: 11 }}>▶</span>
+                  {choice.text}
+                  {choice.check ? (
+                    <span style={{ marginLeft: 6, fontSize: 11, color: "#7a6a50" }}>
+                      [{STAT_META[choice.check.stat]?.label}检定 {choice.check.difficulty}]
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom hint */}
+        <div style={{ textAlign: "center", padding: "6px", borderTop: "1px solid rgba(200,165,106,0.06)", fontSize: 11, color: "#5a4a3a" }}>
+          {autoMode ? "自动推进中...重大选择时暂停" : "点击「自动」逐岁推进，或在下方操作"}
         </div>
       </div>
     );
@@ -522,106 +524,99 @@
   // ── Summary Screen ──
 
   function SummaryScreen({ gs, summary, isLoading, onRestart }) {
-    const [visibleCount, setVisibleCount] = useState(5);
     const finalStats = ["intellect", "spirit", "physique", "elemental"];
 
-    useEffect(() => {
-      setVisibleCount(5);
-    }, []);
+    // Compute age-based evaluation
+    const getAgeGrade = () => {
+      const ratio = gs.age / gs.lifespan;
+      if (gs.isDead && ratio < 0.2) return { label: "早夭", grade: 0, color: "#a0a0a0" };
+      if (ratio < 0.5) return { label: "未尽天年", grade: 1, color: "#b0a0c0" };
+      if (ratio < 0.8) return { label: "中寿", grade: 2, color: "#c0b080" };
+      if (ratio < 1.1) return { label: "寿满天年", grade: 3, color: "#d8c56a" };
+      return { label: "超然长寿", grade: 4, color: "#e8d080" };
+    };
 
-    const visibleHistory = gs.history.slice(0, visibleCount);
+    const getAvgStat = () => (gs.stats.intellect + gs.stats.spirit + gs.stats.physique + gs.stats.elemental) / 4;
+    const getOverallGrade = () => {
+      const avg = getAvgStat();
+      if (avg < 0) return { label: "灾厄缠身", grade: 0 };
+      if (avg < 3) return { label: "平凡一生", grade: 1 };
+      if (avg < 7) return { label: "有所作为", grade: 2 };
+      if (avg < 12) return { label: "卓越不凡", grade: 3 };
+      return { label: "传奇人物", grade: 4 };
+    };
+
+    const ageGrade = getAgeGrade();
+    const overallGrade = getOverallGrade();
 
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "60px 20px 48px", position: "relative", zIndex: 1 }}>
-        <div style={{ width: "100%", maxWidth: 640 }}>
-          <div className="fade-up" style={{ textAlign: "center", marginBottom: 36 }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px 48px", position: "relative", zIndex: 1 }}>
+        <div style={{ width: "100%", maxWidth: 460 }}>
+          <div className="fade-up" style={{ textAlign: "center", marginBottom: 28 }}>
             <div style={{ color: "rgba(200,165,106,0.35)", fontSize: 11, letterSpacing: "0.45em", marginBottom: 12 }}>LIFE COMPLETE</div>
-            <h2 className="gold" style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>
+            <h2 className="gold" style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>
               {gs.isHilichurlEnding ? "荒野的低语" : (gs.nation_id === "primordial" && gs.race_id === "dragon") ? "旧世界的残骸" : (gs.nation_id === "primordial" && gs.race_id === "angel") ? "引路的微光" : gs.isDead ? "命数终止" : "人生终章"}
             </h2>
-            <p style={{ color: "#7a6a50", fontSize: 14 }}>{gs.race_name} · {gs.nation_name} · {gs.birthplace} · {gs.era}</p>
-            <p style={{ color: "#7a6a50", fontSize: 12, marginTop: 8 }}>
-              {gs.isDead ? `止于${gs.age}岁 · ` : `活到${gs.age}岁 · `}
-              寿命阈值 {gs.lifespan}
-            </p>
-            {gs.isDead ? <p style={{ color: gs.isHilichurlEnding ? "#c0a060" : gs.nation_id === "primordial" ? "#e8d080" : "#b97b7b", fontSize: 12, marginTop: 6 }}>{gs.deathReason}</p> : null}
-            {gs.isHilichurlEnding ? (
-              <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(96,60,130,0.15)", border: "1px solid rgba(160,80,200,0.25)", borderRadius: 6 }}>
-                <div style={{ fontSize: 13, color: "#c0a0d0", lineHeight: 1.8 }}>
-                  【结局达成：荒野的低语】<br />
-                  生存评价：D（失落王朝的遗民）
-                </div>
-              </div>
-            ) : null}
-            {(gs.nation_id === "primordial" && gs.race_id === "dragon" && gs.isDead) ? (
-              <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(200,160,60,0.12)", border: "1px solid rgba(240,216,144,0.3)", borderRadius: 6 }}>
-                <div style={{ fontSize: 13, color: "#e8d080", lineHeight: 1.8 }}>
-                  【结局达成：旧世界的残骸】<br />
-                  生存评价：S（太古的殉道者）
-                </div>
-              </div>
-            ) : null}
-            {(gs.nation_id === "primordial" && gs.race_id === "angel" && gs.isDead) ? (
-              <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(180,200,220,0.12)", border: "1px solid rgba(180,200,240,0.3)", borderRadius: 6 }}>
-                <div style={{ fontSize: 13, color: "#c0d0f0", lineHeight: 1.8 }}>
-                  【结局达成：引路的微光】<br />
-                  生存评价：D（坠落的晨星）<br />
-                  从高天威权的代行者，沦为凭吊遗迹的孤魂。你背叛了神明，却终究未能拯救凡人——你的余生将在永世的徘徊中度过。
-                </div>
-              </div>
-            ) : null}
+            <p style={{ color: "#7a6a50", fontSize: 13 }}>{gs.race_name} · {gs.nation_name} · {gs.era}</p>
           </div>
-          <div className="fade-up mobile-summary-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, marginBottom: 22, overflow: "hidden", border: "1px solid rgba(200,165,106,0.15)", borderRadius: 8, animationDelay: "0.15s" }}>
-            {finalStats.map((key, index) => (
-              <div key={key} style={{ padding: "16px 10px", textAlign: "center", background: "rgba(8,12,24,0.9)", borderRight: index < 3 ? "1px solid rgba(200,165,106,0.1)" : "none" }}>
-                <div style={{ fontSize: 26, fontWeight: 700, color: STAT_META[key].color }}>{gs.stats[key]}</div>
-                <div style={{ fontSize: 11, color: "#6a5a40", marginTop: 4 }}>{STAT_META[key].label}</div>
+
+          {/* Final stat cards */}
+          <div className="fade-up mobile-summary-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, marginBottom: 18, border: "1px solid rgba(200,165,106,0.15)", borderRadius: 8 }}>
+            {finalStats.map((key, i) => (
+              <div key={key} style={{ padding: "14px 8px", textAlign: "center", background: "rgba(8,12,24,0.9)", borderRight: i < 3 ? "1px solid rgba(200,165,106,0.08)" : "none" }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: STAT_META[key].color }}>{gs.stats[key]}</div>
+                <div style={{ fontSize: 10, color: "#6a5a40", marginTop: 3 }}>{STAT_META[key].label}</div>
               </div>
             ))}
           </div>
-          <div style={{ marginBottom: 26 }}>
-            <div style={{ fontSize: 11, color: "#7a6a50", letterSpacing: "0.2em", marginBottom: 14, textAlign: "center" }}>人生编年</div>
-            <div className="card" style={{ padding: "16px 20px", maxHeight: 420, overflowY: "auto" }}>
-              {gs.history.length === 0 ? (
-                <p style={{ fontSize: 13, color: "#6a5040", textAlign: "center", padding: "20px 0" }}>无事可记。</p>
-              ) : (
-                <div>
-                  {visibleHistory.map((item, index) => (
-                    <div key={`${item.age}-${index}`} className="fade-up" style={{
-                      animationDelay: `${index * 0.03}s`,
-                      padding: "8px 0",
-                      borderBottom: "1px solid rgba(200,165,106,0.05)",
-                      fontSize: 13,
-                      lineHeight: 1.8,
-                      color: item.label?.includes("死") || item.label?.includes("陨") ? "#d08070" : "#c4b48a",
-                    }}>
-                      <span style={{ color: "#8a7a60", fontSize: 12, marginRight: 8 }}>{item.age}岁</span>
-                      {item.summary}
-                      {item.result ? <span style={{ color: "#7a6a50", fontSize: 11, marginLeft: 8 }}>[{item.result}]</span> : null}
-                    </div>
-                  ))}
-                  {visibleCount < gs.history.length && (
-                    <div style={{ textAlign: "center", marginTop: 12 }}>
-                      <button className="choice-btn" onClick={() => setVisibleCount((c) => c + 20)}
-                        style={{ display: "inline-block", width: "auto", padding: "6px 28px", fontSize: 12 }}>
-                        展开更多 ({gs.history.length - visibleCount} 条剩余)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+
+          {/* Evaluation */}
+          <div className="card fade-up" style={{ padding: "18px 20px", marginBottom: 14, animationDelay: "0.1s" }}>
+            <div style={{ fontSize: 12, color: "#7a6a50", letterSpacing: "0.15em", marginBottom: 12 }}>人生评价</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 14 }}>
+              <div style={{ color: "#7a6a50" }}>享年</div>
+              <div style={{ color: ageGrade.color, textAlign: "right" }}>{gs.age}岁 · {ageGrade.label}</div>
+              <div style={{ color: "#7a6a50" }}>寿命阈值</div>
+              <div style={{ color: "#d8c56a", textAlign: "right" }}>{gs.lifespan}</div>
+              <div style={{ color: "#7a6a50" }}>死亡原因</div>
+              <div style={{ color: gs.isDead ? (gs.isHilichurlEnding ? "#c0a060" : "#b97b7b") : "#8a9a6a", textAlign: "right", fontSize: 12 }}>
+                {gs.isDead ? gs.deathReason : "安然在世"}
+              </div>
+              <div style={{ color: "#7a6a50", marginTop: 8 }}>综合评价</div>
+              <div style={{ color: overallGrade.grade >= 3 ? "#e8d080" : overallGrade.grade >= 2 ? "#c8c06a" : "#8a7a60", textAlign: "right", fontSize: 16, fontWeight: 700, marginTop: 4 }}>
+                {overallGrade.label}
+              </div>
             </div>
           </div>
+
+          {/* Ending panel */}
+          {gs.isHilichurlEnding && (
+            <div className="fade-up" style={{ marginBottom: 14, padding: "10px 14px", background: "rgba(96,60,130,0.12)", border: "1px solid rgba(160,80,200,0.2)", borderRadius: 6 }}>
+              <div style={{ fontSize: 12, color: "#c0a0d0", lineHeight: 1.8 }}>【结局：荒野的低语】D·失落王朝的遗民</div>
+            </div>
+          )}
+          {(gs.nation_id === "primordial" && gs.race_id === "dragon" && gs.isDead) && (
+            <div className="fade-up" style={{ marginBottom: 14, padding: "10px 14px", background: "rgba(200,160,60,0.1)", border: "1px solid rgba(240,216,144,0.25)", borderRadius: 6 }}>
+              <div style={{ fontSize: 12, color: "#e8d080", lineHeight: 1.8 }}>【结局：旧世界的残骸】S·太古的殉道者</div>
+            </div>
+          )}
+          {(gs.nation_id === "primordial" && gs.race_id === "angel" && gs.isDead) && (
+            <div className="fade-up" style={{ marginBottom: 14, padding: "10px 14px", background: "rgba(180,200,220,0.1)", border: "1px solid rgba(180,200,240,0.2)", borderRadius: 6 }}>
+              <div style={{ fontSize: 12, color: "#c0d0f0", lineHeight: 1.8 }}>【结局：引路的微光】D·坠落的晨星</div>
+            </div>
+          )}
+
           {gs.talents?.length ? (
-            <div className="fade-up" style={{ textAlign: "center", marginBottom: 32, animationDelay: "0.35s" }}>
-              <div style={{ fontSize: 11, color: "#6a5a40", letterSpacing: "0.2em", marginBottom: 12 }}>命运赐下的天赋</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                {gs.talents.map((talent) => (
-                  <span key={talent.id} style={{ padding: "4px 14px", fontSize: 12, borderRadius: 20, background: "rgba(200,165,106,0.08)", border: "1px solid rgba(200,165,106,0.25)", color: "#c8a56a" }}>{talent.name}</span>
+            <div className="fade-up" style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 10, color: "#6a5a40", marginBottom: 8 }}>天赋</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
+                {gs.talents.map((t) => (
+                  <span key={t.id} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 14, background: "rgba(200,165,106,0.06)", border: "1px solid rgba(200,165,106,0.15)", color: "#c8a56a" }}>{t.name}</span>
                 ))}
               </div>
             </div>
           ) : null}
+
           <div style={{ textAlign: "center" }}>
             <button className="primary-btn" onClick={onRestart}>再来一世</button>
           </div>

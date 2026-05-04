@@ -341,6 +341,25 @@ window.TeyvatEngine = (() => {
     return null;
   }
 
+  function entryMatchesConditions(entry, gameState) {
+    // Flag conditions
+    const requiresFlags = entry.requiresFlags || [];
+    const excludesFlags = entry.excludesFlags || [];
+    const hasRequired = requiresFlags.every((f) => gameState.flags.includes(f));
+    const hasExcluded = excludesFlags.some((f) => gameState.flags.includes(f));
+    if (!hasRequired || hasExcluded) return false;
+
+    // Stat conditions (e.g. { intellect: { min: 3 }, spirit: { max: -1 } })
+    const statCond = entry.stat_conditions || {};
+    for (const [key, cond] of Object.entries(statCond)) {
+      const val = gameState.stats[key] || 0;
+      if (cond.min !== undefined && val < cond.min) return false;
+      if (cond.max !== undefined && val > cond.max) return false;
+    }
+
+    return true;
+  }
+
   function entryMatchesFlags(entry, flags) {
     const requiresFlags = entry.requiresFlags || [];
     const excludesFlags = entry.excludesFlags || [];
@@ -424,7 +443,10 @@ window.TeyvatEngine = (() => {
 
     const nationPool = YEARLY_POOLS[gameState.nation_id]?.[stage.id] || [];
     const specialPool = gameState.specialLine ? SPECIAL_LINES[gameState.specialLine]?.yearly?.[stage.id] || [] : [];
-    const combinedPool = [...nationPool, ...specialPool];
+    let combinedPool = [...nationPool, ...specialPool];
+
+    // Filter by stat/flag conditions (like reference game's include/exclude)
+    combinedPool = combinedPool.filter((entry) => entryMatchesConditions(entry, gameState));
     if (!combinedPool.length) {
       return createFallbackYearlyEvent(gameState);
     }

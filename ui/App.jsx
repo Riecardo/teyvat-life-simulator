@@ -18,13 +18,12 @@
     const [gameState, setGameState] = useState(null);
     const [currentEvent, setCurrentEvent] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [displayedText, setDisplayedText] = useState("");
-    const [showChoices, setShowChoices] = useState(false);
     const [statDeltas, setStatDeltas] = useState(null);
     const [resolution, setResolution] = useState(null);
     const [summary, setSummary] = useState("");
     const [busy, setBusy] = useState(false);
     const [pendingTransition, setPendingTransition] = useState(null);
+    const [autoMode, setAutoMode] = useState(false);
 
     const stars = useMemo(() => createStars(110), []);
 
@@ -49,28 +48,12 @@
       return getAllocationCaps(race, setupBudget.selectedTalents);
     }, [setupState, setupBudget]);
 
-    useEffect(() => {
-      if (!currentEvent?.story) return undefined;
-      const text = currentEvent.story;
-      setDisplayedText("");
-      setShowChoices(false);
-      let index = 0;
-      const timer = setInterval(() => {
-        index += 1;
-        setDisplayedText(text.slice(0, index));
-        if (index >= text.length) { clearInterval(timer); setShowChoices(true); }
-      }, 28);
-      return () => clearInterval(timer);
-    }, [currentEvent]);
-
     function loadEvent(nextGameState) {
       setIsLoading(true);
       setCurrentEvent(null);
       setStatDeltas(null);
       setResolution(null);
       setPendingTransition(null);
-      setDisplayedText("");
-      setShowChoices(false);
       const event = createYearEvent(nextGameState);
       setCurrentEvent(event);
       setIsLoading(false);
@@ -135,25 +118,48 @@
     function handleAction(choice) {
       if (busy || !gameState || !currentEvent) return;
       setBusy(true);
+      setAutoMode(false); // pause auto on major choice
       const { nextGameState, deltas, resolution: nextResolution } = resolveYearAction(gameState, choice, currentEvent);
       setGameState(nextGameState);
       setStatDeltas(Object.keys(deltas).length ? deltas : null);
       setResolution(nextResolution);
       setPendingTransition(nextGameState);
-      setShowChoices(false);
       setBusy(false);
     }
 
-    async function continueAfterResolution() {
+    function continueAfterResolution() {
       if (!pendingTransition) return;
       const nextGameState = pendingTransition;
-      setBusy(true);
+      setPendingTransition(null);
       if (nextGameState.isDead) {
-        await endLife(nextGameState);
+        setAutoMode(false);
+        endLife(nextGameState);
       } else {
         loadEvent(nextGameState);
       }
-      setBusy(false);
+    }
+
+    // Auto-advance: simulate clicking "continue" or advance year
+    function triggerAdvance() {
+      if (busy) return;
+      if (resolution) {
+        continueAfterResolution();
+      } else if (currentEvent && currentEvent.type !== "major") {
+        // Normal event: auto-click the default action
+        handleAction({ text: currentEvent.actionText || "下一年", success: currentEvent.outcome });
+      }
+      // Major events: don't auto-advance, wait for player
+    }
+
+    React.useEffect(() => {
+      if (autoMode && !busy) {
+        const timer = setTimeout(() => triggerAdvance(), 800);
+        return () => clearTimeout(timer);
+      }
+    }, [autoMode, currentEvent, resolution, busy, gameState?.age]);
+
+    function toggleAuto() {
+      setAutoMode((prev) => !prev);
     }
 
     function endLife(nextGameState) {
@@ -202,9 +208,10 @@
         ) : null}
         {screen === "game" && gameState ? (
           <GameScreen
-            gs={gameState} isLoading={isLoading} displayedText={displayedText}
-            showChoices={showChoices} currentEvent={currentEvent} statDeltas={statDeltas}
-            resolution={resolution} busy={busy} onChoice={handleAction} onContinue={continueAfterResolution}
+            gs={gameState} isLoading={isLoading} currentEvent={currentEvent}
+            statDeltas={statDeltas} resolution={resolution} busy={busy}
+            autoMode={autoMode} onChoice={handleAction} onContinue={continueAfterResolution}
+            onToggleAuto={toggleAuto}
           />
         ) : null}
         {screen === "summary" && gameState ? (

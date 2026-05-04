@@ -8,6 +8,7 @@ window.TeyvatLifeData = (() => {
       flag: options.flag || null,
       requiresFlags: options.requiresFlags || [],
       excludesFlags: options.excludesFlags || [],
+      stat_conditions: options.stat_conditions || null,
       death: Boolean(options.death),
       deathReason: options.deathReason || "",
     };
@@ -339,6 +340,7 @@ window.TeyvatLifeData = (() => {
         yearly("这一年冬天，城里的老风车坏了一座。你带着几个年轻人花了三天把它修好。叶片重新转动的那一刻，所有人都自发地鼓起了掌。", { intellect: 1, physique: 1 }),
         yearly("你开始在自家院子里酿酒。第一次酿出来的味道酸得不能喝，隔壁的老酿酒师尝了一口后，给了你三条改良建议——全是他爷爷传下来的。", { intellect: 1 }),
         yearly("有人在风起地种下了一棵新的树苗，说是为了纪念那些没能等到新风的人。你路过时停下来鞠了一躬。有些名字没人再提，但你记得。", { spirit: 1 }),
+        yearly("你利用自己在城内积累多年的人脉，撮合了两位多年交恶的老酒商。他们握手的那一刻，你觉得这是你这几年做的最有意义的事。", { intellect: 1, spirit: 1 }, { stat_conditions: { intellect: { min: 4 } } }),
         yearly("这一年蒙德没有发生什么大事。没有战争，没有天灾，没有神明降临。但你觉得这正是你们那一代人拼了一辈子想换来的一天。", { spirit: 1 }),
       ],
       elder: [
