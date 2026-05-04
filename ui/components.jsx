@@ -463,6 +463,19 @@
           {/* History entries */}
           {gs.history.map((item, i) => renderTimelineEntry(item, i))}
 
+          {/* Current event story (before resolution) */}
+          {!resolution && !isLoading && currentEvent && !visibleChoices && (
+            <div className="fade-up" style={{ padding: "8px 0" }}>
+              <div className="card" style={{ padding: "12px 16px", marginBottom: 8, borderColor: "rgba(200,165,106,0.1)" }}>
+                <p style={{ fontSize: 14, lineHeight: 2, color: "#c4b48a", margin: 0 }}>{currentEvent.story}</p>
+              </div>
+              <button className="choice-btn" onClick={() => onChoice({ text: currentEvent.actionText || "下一年", success: currentEvent.outcome })}
+                style={{ textAlign: "center", fontSize: 13, padding: "8px", borderColor: "rgba(200,165,106,0.15)" }}>
+                {currentEvent.actionText || "下一年"} →
+              </button>
+            </div>
+          )}
+
           {/* Loading spinner */}
           {isLoading && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", color: "#6a5a40" }}>
